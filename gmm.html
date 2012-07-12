@@ -1,0 +1,106 @@
+<html>
+    <head>
+        <link rel="stylesheet" href="bootstrap.min.css">
+        <title>Gaussian mixture model playground</title>
+        <style>
+            body {padding-top:16px; padding-left:20px;}
+            .relax {padding-top:4px; padding-bottom:4px;}
+        </style>
+    </head>
+    <body>
+        <div class="row">
+            <h1 class="span16">Gaussian mixture model playground <small>(see <a href="#disclaimer">disclaimer</a> below)</small> </h1>
+        </div>
+        <div class="row">
+            <div class="span7">
+                <strong>Select mp3 audio file:</strong>
+                <input type="file" class="input-file" name="mp3_file" id="mp3_file"/>
+            </div>
+        </div>
+        <div class="row">
+            <div class="span8" id="scanner_result"></div>
+        </div>
+        <div class="row">
+            <div class="span16">
+                <canvas id="spectral_scan" width="960" height="90"/>
+            </div>
+        </div>
+        <div class="row">
+            <div class="span16">
+                <canvas id="spectral_scan_re" width="960" height="90"/>
+            </div>
+        </div>
+        <div class="row relax">
+            <label class="span1"><strong>GMM:</strong></label>
+            <button id="gmm_begin" class="small primary btn span2">Guess</button>
+            <button id="gmm_stabilize" class="small primary btn span2">Stabilize</button>
+            <button id="gmm_step" class="small btn span2">Step</button>
+            <button id="gmm_track" class="small btn span2">Track</button>
+            <button id="gmm_simplify" class="small btn span2">Simplify</button>
+            <button id="gmm_simplify_more" class="small btn span2">(more)</button>
+            <div class="offset1 span3">
+                <div class="row">coverage = <span id="gmm_coverage"></span></div> 
+                <div class="row">stability = <span id="gmm_stability"></span></div>
+            </div>
+        </div>
+        <div class="row">
+            <div class="span16">
+                <canvas id="spectrogram" width="960" height="180"/>
+            </div>
+        </div>
+        <div class="row relax">
+            <button id="tw_left" class="small btn span1">&lt;&lt;</button>
+            <button id="tw_zoomin" class="small btn span2">zoomin</button>
+            <button id="tw_zoomout" class="small btn span2">zoomout</button>
+            <button id="tw_right" class="small btn span1">&gt;&gt;</button>
+            <button id="track_window" class="small btn span2">Track window</button>
+            <div class="offset5 span3">
+                <div class="row">
+                    <span class="span1"><strong>Time:</strong></span>
+                    <span class="span2">[<span id="t1"></span>, <span id="t2"></span>] secs</span>
+                </div>
+                <div class="row">
+                    <span class="span1"><strong>Now:</strong></span>
+                    <span class="span2"><span id="now_at"></span> secs</span>
+                </div>
+            </div>
+        </div>
+        <br/>
+        <div class="row">
+            <div class="span4">
+                <div class="row">
+                    <textarea class="span4" cols="80" rows="5" style="font-family: monospace" name="svaras" id="svaras">ma1</textarea>
+                    <button id="plot_spectrogram" class="small primary btn span1">Plot</button>
+                </div>
+            </div>
+            <div class="span9">
+                <div class="row">
+                    <span class="span1"><strong>Tonic:</strong></span><input type="text" class="span2" id="tonic" value="158.2"/>(Hz)
+                </div>
+                <div class="row">
+                    <span class="span1"><strong>Peaks:</strong></span>
+                    <span id="peaks" class="span8"></span>
+                </div>
+                <div class="row">
+                    <span class="span1"><strong>Jump:</strong></span> 
+                    <span id="jump_probabilities" class="span8"></span>
+                </div>
+             </div>
+             <div class="span3">
+                 <canvas id="selfsim" class="span3" width="1" height="1"/>
+             </div>
+         </div>
+         <div class="row" id="status"></div>
+         <div class="row"><b><a name="disclaimer">DISCLAIMER</a>:</b> This program began as a <b>playground</b> for the idea of 
+             modeling the audio spectrum of a musical signal as mixture of gaussians after frequency remapping. I hope to show 
+             it some much needed love when time is available, cleanup the code, speed it up, fix bugs, etc. <b>Absolutely NO 
+             guarantees</b> of utility, let alone bug-freeness for now! - Kumar (12 July 2012)</div>
+         <script src="waveform.js"></script>
+         <script src="gmm.js"></script>
+         <script>
+             Transcribe.configure_file_picker('mp3_file');
+             Transcribe.configure_spectral_scanner('spectral_scan');
+         </script>
+    </body>
+</html>
+
