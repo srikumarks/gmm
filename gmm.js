@@ -380,7 +380,7 @@ var Transcribe = (function (exports, Math, Date) {
 
         // Initially no reassignment done.
         for (i = 0; i < N; ++i) {
-            this.__reassigned_frequency[i] = this.frequency(f);
+            this.__reassigned_frequency[i] = this.frequency(i);
         }
 
         // Prepare temp tables for spectrum calculation.
@@ -395,7 +395,7 @@ var Transcribe = (function (exports, Math, Date) {
             // If samples is not given, check whether it is available as part of object state.
             samples = samples || this.samples;
             if (!samples) {
-                throw "Spectrum.update: No samples array specified.";
+                throw new Error("Spectrum.update: No samples array specified.");
             }
 
             var f, f2, i, j, ssum, csum, ssum2, csum2, power, offset, phase, dphase, x, y, y2, s;
@@ -408,7 +408,7 @@ var Transcribe = (function (exports, Math, Date) {
             var start = Math.min(Math.max(0, Math.floor(t * sampleRate)), samples.length - extWindowLen);
 
             if (start < 0) {
-                throw "Too short a signal for measurement";
+                throw new Error("Too short a signal for measurement");
             }
 
             this.time_secs = start / sampleRate;
@@ -1381,7 +1381,7 @@ var Transcribe = (function (exports, Math, Date) {
     //    remap F to F/K, so that in the expectation maximization iteration,
     //    the gaussian G will get biased towards F/K and the energy at F will
     //    get attributed to F/K.
-    GaussianMixtureModel.prototype.number_of_subharmonics = 10;
+    GaussianMixtureModel.prototype.number_of_subharmonics = 3;
 
     GaussianMixtureModel.prototype.value_of_subharmonic = function (i, f) {
         var k, val, maxn = 1, maxval = -1;
@@ -2814,6 +2814,10 @@ var Transcribe = (function (exports, Math, Date) {
         },
 
         draw_tracked_pitches: function (ctxt, freqs, track) {
+            function alphaMap(a) {
+                return Math.pow(a, 0.5);
+            }
+
             ctxt.save();
             var f, i, len, x1, x2, y1, y2, tracks, dx, dy, ys, trkf, m, n, mN, nN, p1, p2, p12;
             tracks = track.tracks;
@@ -2831,7 +2835,7 @@ var Transcribe = (function (exports, Math, Date) {
                     for (i = 0, trkf = tracks[f], len = trkf.length; i < len; ++i) {
                         x1 = i * dx;
                         x2 = (i + 1) * dx;
-                        ctxt.globalAlpha = 0.95 * trkf[i];
+                        ctxt.globalAlpha = alphaMap(0.95 * trkf[i]);
                         ctxt.fillRect(x1, y1, x2 - x1, y2 - y1);
                     }
                 }
@@ -2859,7 +2863,7 @@ var Transcribe = (function (exports, Math, Date) {
                 x2 = time2x(p1.time_secs + scanner.window_secs);
 
                 for (m = 0, n = p1.sumOfWeights(); m < p1.length; ++m) {
-                    ctxt.globalAlpha = Math.pow(p1.power, 0.15) * p1.weight(m) / n;
+                    ctxt.globalAlpha = alphaMap(Math.pow(p1.power, 0.15) * p1.weight(m) / n);
                     ctxt.beginPath();
                     y1 = ctxt.canvas.height * (1 - Math.log(p1.mean(m) / refFreqLow_Hz) / Math.log(refFreqHigh_Hz / refFreqLow_Hz));
                     ctxt.moveTo(x1, y1);
@@ -2871,7 +2875,7 @@ var Transcribe = (function (exports, Math, Date) {
                     p2 = track.peaks[i - 1];
                     p12 = GMM.outer_product(p1, p2, 10);
                     for (m = 0, n = Math.pow(p1.power, 0.15), n2 = p2.length; m < p12.length; ++m) {
-                        ctxt.globalAlpha = n * p12.weight(m);
+                        ctxt.globalAlpha = alphaMap(n * p12.weight(m));
                         ctxt.beginPath();
                         ctxt.moveTo(time2x(p2.time_secs + 0.8 * dt), ctxt.canvas.height * (1 - Math.log(p2.mean(m % n2) / refFreqLow_Hz) / Math.log(refFreqHigh_Hz / refFreqLow_Hz)));
                         ctxt.lineTo(x1, ctxt.canvas.height * (1 - Math.log(p1.mean(Math.floor(m / n2)) / refFreqLow_Hz) / Math.log(refFreqHigh_Hz / refFreqLow_Hz)));
@@ -3186,6 +3190,13 @@ var Transcribe = (function (exports, Math, Date) {
 
         elem('track_window').onclick = function () {
             scanner.draw_spectrogram(true);
+        };
+
+        elem('number_of_subharmonics').value = '' + GaussianMixtureModel.prototype.number_of_subharmonics;
+        elem('number_of_subharmonics').onchange = function () {
+            GaussianMixtureModel.prototype.number_of_subharmonics = Math.max(1, Math.min(15, parseInt(elem('number_of_subharmonics').value, 10)));
+            elem('number_of_subharmonics').value = '' + GaussianMixtureModel.prototype.number_of_subharmonics;
+            console.log('sub harmonics = ' + GaussianMixtureModel.prototype.number_of_subharmonics);
         };
 
         function initialize_gaussian_model(scanner) {
