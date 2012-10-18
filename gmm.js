@@ -2853,6 +2853,50 @@ var Transcribe = (function (exports, Math, Date) {
                 return function (t) { return (t - t0) * xscale; };
             })();
 
+            var x2time = (function (t0, xscale) {
+                t0 = scanner.interval[0];
+                xscale = ctxt.canvas.width / (scanner.interval[1] - scanner.interval[0]);
+                return function (x) {
+                    return t0 + x / xscale;
+                };
+            }());
+
+            var pitch2y = (function (refFreqLow_Hz, refFreqHigh_Hz, height) {
+                var scale = 1 / Math.log(refFreqHigh_Hz / refFreqLow_Hz);
+                return function (f) {
+                    return height * (1 - scale * Math.log(f / refFreqLow_Hz));
+                };
+            }(refFreqLow_Hz, refFreqHigh_Hz, ctxt.canvas.height));
+
+            var y2pitch = (function (refFreqLow_Hz, refFreqHigh_Hz, height) {
+                var scale = 1 / Math.log(refFreqHigh_Hz / refFreqLow_Hz);
+                return function (y) {
+                    return refFreqLow_Hz * Math.exp((1 - y / height) / scale);
+                };
+            }(refFreqLow_Hz, refFreqHigh_Hz, ctxt.canvas.height));
+
+            scanner.report_gaussian_around = function (x, y) {
+                var time_secs = x2time(x);
+                var f = y2pitch(y);
+               
+                var i, N = tracks[0].length, p1, m, n, maxval, maxm = 0;
+                for (i = 0; i < N; ++i) {
+                    p1 = track.peaks[i];
+                    if (time_secs >= p1.time_secs && time_secs < p1.time_secs + scanner.window_secs) {
+                        // Found x.
+                        for (m = 0, n = p1.length, maxm = m, maxval = p1.value_of(m, f); m < n; ++m) {
+                            if (p1.value_of(m, f) > p1.value_of(maxm, f)) {
+                                maxm = m;
+                                maxval = p1.value_of(m, f);
+                            }
+                        }
+                        return {freq: Math.floor(p1.mean(maxm) * 100) / 100};
+                    }
+                }
+
+                return null;
+            };
+
             var dt = scanner.step_frac * scanner.window_secs;
 
             var maxn, maxnval, maxm, maxmval, k, kupto, ki, ksum, ktotal, kk, n1, n2;            
@@ -2865,7 +2909,7 @@ var Transcribe = (function (exports, Math, Date) {
                 for (m = 0, n = p1.sumOfWeights(); m < p1.length; ++m) {
                     ctxt.globalAlpha = alphaMap(Math.pow(p1.power, 0.15) * p1.weight(m) / n);
                     ctxt.beginPath();
-                    y1 = ctxt.canvas.height * (1 - Math.log(p1.mean(m) / refFreqLow_Hz) / Math.log(refFreqHigh_Hz / refFreqLow_Hz));
+                    y1 = pitch2y(p1.mean(m));
                     ctxt.moveTo(x1, y1);
                     ctxt.lineTo(x2, y1);
                     ctxt.stroke();
@@ -2877,8 +2921,8 @@ var Transcribe = (function (exports, Math, Date) {
                     for (m = 0, n = Math.pow(p1.power, 0.15), n2 = p2.length; m < p12.length; ++m) {
                         ctxt.globalAlpha = alphaMap(n * p12.weight(m));
                         ctxt.beginPath();
-                        ctxt.moveTo(time2x(p2.time_secs + 0.8 * dt), ctxt.canvas.height * (1 - Math.log(p2.mean(m % n2) / refFreqLow_Hz) / Math.log(refFreqHigh_Hz / refFreqLow_Hz)));
-                        ctxt.lineTo(x1, ctxt.canvas.height * (1 - Math.log(p1.mean(Math.floor(m / n2)) / refFreqLow_Hz) / Math.log(refFreqHigh_Hz / refFreqLow_Hz)));
+                        ctxt.moveTo(time2x(p2.time_secs + 0.8 * dt), pitch2y(p2.mean(m % n2)));
+                        ctxt.lineTo(x1, pitch2y(p1.mean(Math.floor(m/n2))));
                         ctxt.stroke();
                     }
                 }
@@ -2909,13 +2953,13 @@ var Transcribe = (function (exports, Math, Date) {
                         ctxt.globalAlpha = 1;
                         if (Math.abs(Math.log(p1.mean(m)/p2.mean(n))) < 3/12) {
                             ctxt.beginPath();
-                            ctxt.moveTo(x1, ctxt.canvas.height * (1 - Math.log(p1.mean(m) / refFreqLow_Hz) / Math.log(refFreqHigh_Hz / refFreqLow_Hz)));
-                            ctxt.lineTo(x2, ctxt.canvas.height * (1 - Math.log(p2.mean(n) / refFreqLow_Hz) / Math.log(refFreqHigh_Hz / refFreqLow_Hz)));
+                            ctxt.moveTo(x1, pitch2y(p1.mean(m)));
+                            ctxt.lineTo(x2, pitch2y(p2.mean(n)));
                             ctxt.stroke();
                         } else {
                             ctxt.beginPath();
-                            ctxt.moveTo(x1, ctxt.canvas.height * (1 - Math.log(p1.mean(m) / refFreqLow_Hz) / Math.log(refFreqHigh_Hz / refFreqLow_Hz)));
-                            ctxt.lineTo(x2, ctxt.canvas.height * (1 - Math.log(p1.mean(m) / refFreqLow_Hz) / Math.log(refFreqHigh_Hz / refFreqLow_Hz)));
+                            ctxt.moveTo(x1, pitch2y(p1.mean(m)));
+                            ctxt.lineTo(x2, pitch2y(p1.mean(m)));
                             ctxt.stroke();
                         }
                     }
@@ -3190,6 +3234,17 @@ var Transcribe = (function (exports, Math, Date) {
 
         elem('track_window').onclick = function () {
             scanner.draw_spectrogram(true);
+        };
+
+        elem('spectrogram').onmousemove = function (event) {
+            if (scanner.report_gaussian_around && event.shiftKey) {
+                debugger;
+                var xy = elem('spectrogram').relMouseCoords(event);
+                var f = scanner.report_gaussian_around(xy.x, xy.y).freq;
+                var tonic = +elem('tonic').value;
+                var p = Math.round(1200 * Math.log(f / tonic) / Math.LN2) / 100;
+                elem('gaussian_around').innerText = '' +  p;
+            }
         };
 
         elem('number_of_subharmonics').value = '' + GaussianMixtureModel.prototype.number_of_subharmonics;
